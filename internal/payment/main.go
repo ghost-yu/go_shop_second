@@ -5,6 +5,7 @@ import (
 	"github.com/ghost-yu/go_shop_second/common/config"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/common/server"
+	"github.com/ghost-yu/go_shop_second/payment/infrastructure/consumer"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -29,6 +30,8 @@ func main() {
 		_ = ch.Close()
 		_ = closeCh()
 	}()
+
+	go consumer.NewConsumer().Listen(ch)
 
 	paymentHandler := NewPaymentHandler()
 	switch serverType {
