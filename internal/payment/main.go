@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ghost-yu/go_shop_second/common/broker"
 	"github.com/ghost-yu/go_shop_second/common/config"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/common/server"
@@ -17,6 +18,17 @@ func init() {
 
 func main() {
 	serverType := viper.GetString("payment.server-to-run")
+
+	ch, closeCh := broker.Connect(
+		viper.GetString("rabbitmq.user"),
+		viper.GetString("rabbitmq.password"),
+		viper.GetString("rabbitmq.host"),
+		viper.GetString("rabbitmq.port"),
+	)
+	defer func() {
+		_ = ch.Close()
+		_ = closeCh()
+	}()
 
 	paymentHandler := NewPaymentHandler()
 	switch serverType {
