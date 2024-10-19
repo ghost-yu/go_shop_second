@@ -7,11 +7,12 @@
 package stockpb
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	orderpb "github.com/ghost-yu/go_shop_second/common/genproto/orderpb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
