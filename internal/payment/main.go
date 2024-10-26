@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ghost-yu/go_shop_second/common/broker"
-	"github.com/ghost-yu/go_shop_second/common/config"
+	_ "github.com/ghost-yu/go_shop_second/common/config"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/common/server"
 	"github.com/ghost-yu/go_shop_second/common/tracing"
@@ -16,9 +16,6 @@ import (
 
 func init() {
 	logging.Init()
-	if err := config.NewViperConfig(); err != nil {
-		logrus.Fatal(err)
-	}
 }
 
 func main() {
