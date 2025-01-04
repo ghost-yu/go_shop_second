@@ -1,0 +1,57 @@
+package main
+
+import (
+	"context"
+
+	_ "github.com/ghost-yu/go_shop_second/common/config"
+	"github.com/ghost-yu/go_shop_second/common/discovery"
+	"github.com/ghost-yu/go_shop_second/common/genproto/stockpb"
+	"github.com/ghost-yu/go_shop_second/common/logging"
+	"github.com/ghost-yu/go_shop_second/common/server"
+	"github.com/ghost-yu/go_shop_second/common/tracing"
+	"github.com/ghost-yu/go_shop_second/stock/ports"
+	"github.com/ghost-yu/go_shop_second/stock/service"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+)
+
+func init() {
+	logging.Init()
+}
+
+func main() {
+	serviceName := viper.GetString("stock.service-name")
+	serverType := viper.GetString("stock.server-to-run")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	shutdown, err := tracing.InitJaegerProvider(viper.GetString("jaeger.url"), serviceName)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer shutdown(ctx)
+
+	application := service.NewApplication(ctx)
+
+	deregisterFunc, err := discovery.RegisterToConsul(ctx, serviceName)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer func() {
+		_ = deregisterFunc()
+	}()
+
+	switch serverType {
+	case "grpc":
+		server.RunGRPCServer(serviceName, func(server *grpc.Server) {
+			svc := ports.NewGRPCServer(application)
+			stockpb.RegisterStockServiceServer(server, svc)
+		})
+	case "http":
+		// 暂时不用
+	default:
+		panic("unexpected server type")
+	}
+}
