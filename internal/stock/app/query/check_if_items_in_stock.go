@@ -7,6 +7,7 @@ import (
 
 	"github.com/ghost-yu/go_shop_second/common/decorator"
 	"github.com/ghost-yu/go_shop_second/common/handler/redis"
+	"github.com/ghost-yu/go_shop_second/common/logging"
 	domain "github.com/ghost-yu/go_shop_second/stock/domain/stock"
 	"github.com/ghost-yu/go_shop_second/stock/entity"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/integration"
@@ -63,7 +64,7 @@ func (h checkIfItemsInStockHandler) Handle(ctx context.Context, query CheckIfIte
 	}
 	defer func() {
 		if err := unlock(ctx, getLockKey(query)); err != nil {
-			logrus.Warnf("redis unlock fail, err=%v", err)
+			logging.Warnf(ctx, nil, "redis unlock fail, err=%v", err)
 		}
 	}()
 
