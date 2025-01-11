@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/ghost-yu/go_shop_second/common/decorator"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	domain "github.com/ghost-yu/go_shop_second/stock/domain/stock"
-	"github.com/ghost-yu/go_shop_second/stock/entity"
 	"github.com/sirupsen/logrus"
 )
 

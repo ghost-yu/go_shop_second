@@ -3,17 +3,16 @@ package command
 import (
 	"context"
 
+	"github.com/ghost-yu/go_shop_second/common/convertor"
 	"github.com/ghost-yu/go_shop_second/common/decorator"
-	"github.com/ghost-yu/go_shop_second/common/genproto/orderpb"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/payment/domain"
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: ACL 清理
-
 type CreatePayment struct {
-	Order *orderpb.Order
+	Order *entity.Order
 }
 
 type CreatePaymentHandler decorator.CommandHandler[CreatePayment, string]
@@ -31,14 +30,14 @@ func (c createPaymentHandler) Handle(ctx context.Context, cmd CreatePayment) (st
 	if err != nil {
 		return "", err
 	}
-	newOrder := &orderpb.Order{
+	newOrder := &entity.Order{
 		ID:          cmd.Order.ID,
 		CustomerID:  cmd.Order.CustomerID,
 		Status:      "waiting_for_payment",
 		Items:       cmd.Order.Items,
 		PaymentLink: link,
 	}
-	err = c.orderGRPC.UpdateOrder(ctx, newOrder)
+	err = c.orderGRPC.UpdateOrder(ctx, convertor.NewOrderConvertor().EntityToProto(newOrder))
 	return link, err
 }
 

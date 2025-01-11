@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/ghost-yu/go_shop_second/common/decorator"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/handler/redis"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	domain "github.com/ghost-yu/go_shop_second/stock/domain/stock"
-	"github.com/ghost-yu/go_shop_second/stock/entity"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/integration"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

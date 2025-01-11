@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ghost-yu/go_shop_second/stock/entity"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 )
 
 type Repository interface {

@@ -3,7 +3,7 @@ package order
 import (
 	"fmt"
 
-	"github.com/ghost-yu/go_shop_second/order/entity"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/pkg/errors"
 	"github.com/stripe/stripe-go/v80"
 )

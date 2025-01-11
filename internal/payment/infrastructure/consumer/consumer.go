@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ghost-yu/go_shop_second/common/broker"
-	"github.com/ghost-yu/go_shop_second/common/genproto/orderpb"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/payment/app"
 	"github.com/ghost-yu/go_shop_second/payment/app/command"
@@ -63,7 +63,7 @@ func (c *Consumer) handleMessage(ch *amqp.Channel, msg amqp.Delivery, q amqp.Que
 		}
 	}()
 
-	o := &orderpb.Order{}
+	o := &entity.Order{}
 	if err = json.Unmarshal(msg.Body, o); err != nil {
 		err = errors.Wrap(err, "failed to unmarshall msg to order")
 		return

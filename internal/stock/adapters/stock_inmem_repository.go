@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	domain "github.com/ghost-yu/go_shop_second/stock/domain/stock"
-	"github.com/ghost-yu/go_shop_second/stock/entity"
 )
 
 type MemoryStockRepository struct {

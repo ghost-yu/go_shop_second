@@ -8,7 +8,7 @@ import (
 	"time"
 
 	_ "github.com/ghost-yu/go_shop_second/common/config"
-	"github.com/ghost-yu/go_shop_second/stock/entity"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/persistent"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/persistent/builder"
 	"github.com/spf13/viper"

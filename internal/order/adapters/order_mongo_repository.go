@@ -4,9 +4,9 @@ import (
 	"context"
 
 	_ "github.com/ghost-yu/go_shop_second/common/config"
+	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	domain "github.com/ghost-yu/go_shop_second/order/domain/order"
-	"github.com/ghost-yu/go_shop_second/order/entity"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

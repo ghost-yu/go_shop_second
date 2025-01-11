@@ -3,11 +3,11 @@ package ports
 import (
 	"context"
 
+	"github.com/ghost-yu/go_shop_second/common/convertor"
 	"github.com/ghost-yu/go_shop_second/common/genproto/stockpb"
 	"github.com/ghost-yu/go_shop_second/common/tracing"
 	"github.com/ghost-yu/go_shop_second/stock/app"
 	"github.com/ghost-yu/go_shop_second/stock/app/query"
-	"github.com/ghost-yu/go_shop_second/stock/convertor"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

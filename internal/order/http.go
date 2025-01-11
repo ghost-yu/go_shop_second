@@ -6,12 +6,12 @@ import (
 	"github.com/ghost-yu/go_shop_second/common"
 	client "github.com/ghost-yu/go_shop_second/common/client/order"
 	"github.com/ghost-yu/go_shop_second/common/consts"
+	"github.com/ghost-yu/go_shop_second/common/convertor"
 	"github.com/ghost-yu/go_shop_second/common/handler/errors"
 	"github.com/ghost-yu/go_shop_second/order/app"
 	"github.com/ghost-yu/go_shop_second/order/app/command"
 	"github.com/ghost-yu/go_shop_second/order/app/dto"
 	"github.com/ghost-yu/go_shop_second/order/app/query"
-	"github.com/ghost-yu/go_shop_second/order/convertor"
 	"github.com/gin-gonic/gin"
 )
 
@@ -70,7 +70,13 @@ func (H HTTPServer) GetCustomerCustomerIdOrdersOrderId(c *gin.Context, customerI
 		return
 	}
 
-	resp = convertor.NewOrderConvertor().EntityToClient(o)
+	resp = client.Order{
+		CustomerId:  o.CustomerID,
+		Id:          o.ID,
+		Items:       convertor.NewItemConvertor().EntitiesToClients(o.Items),
+		PaymentLink: o.PaymentLink,
+		Status:      o.Status,
+	}
 }
 
 func (H HTTPServer) validate(req client.CreateOrderRequest) error {
