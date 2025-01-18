@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/ghost-yu/go_shop_second/common/entity"
+	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/persistent"
 	"github.com/ghost-yu/go_shop_second/stock/infrastructure/persistent/builder"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -51,7 +51,7 @@ func (m MySQLStockRepository) UpdateStock(
 	return m.db.StartTransaction(func(tx *gorm.DB) (err error) {
 		defer func() {
 			if err != nil {
-				logrus.Warnf("update stock transaction err=%v", err)
+				logging.Warnf(ctx, nil, "update stock transaction err=%v", err)
 			}
 		}()
 		err = m.updatePessimistic(ctx, tx, data, updateFn)
