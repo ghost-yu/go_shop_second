@@ -13,6 +13,7 @@ import (
 	"github.com/ghost-yu/go_shop_second/order/app"
 	"github.com/ghost-yu/go_shop_second/order/app/command"
 	"github.com/ghost-yu/go_shop_second/order/app/query"
+	"github.com/ghost-yu/go_shop_second/order/infrastructure/mq"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -45,9 +46,10 @@ func newApplication(_ context.Context, stockGRPC query.StockService, ch *amqp.Ch
 	mongoClient := newMongoClient()
 	orderRepo := adapters.NewOrderRepositoryMongo(mongoClient)
 	metricClient := metrics.TodoMetrics{}
+	eventPublisher := mq.NewRabbitMQEventPublisher(ch)
 	return app.Application{
 		Commands: app.Commands{
-			CreateOrder: command.NewCreateOrderHandler(orderRepo, stockGRPC, ch, logrus.StandardLogger(), metricClient),
+			CreateOrder: command.NewCreateOrderHandler(orderRepo, stockGRPC, eventPublisher, logrus.StandardLogger(), metricClient),
 			UpdateOrder: command.NewUpdateOrderHandler(orderRepo, logrus.StandardLogger(), metricClient),
 		},
 		Queries: app.Queries{

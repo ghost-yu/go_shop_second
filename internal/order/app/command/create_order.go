@@ -11,8 +11,8 @@ import (
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/ghost-yu/go_shop_second/order/app/query"
 	domain "github.com/ghost-yu/go_shop_second/order/domain/order"
+	"github.com/ghost-yu/go_shop_second/order/domain/service"
 	"github.com/pkg/errors"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc/status"
@@ -30,26 +30,26 @@ type CreateOrderResult struct {
 type CreateOrderHandler decorator.CommandHandler[CreateOrder, *CreateOrderResult]
 
 type createOrderHandler struct {
-	orderRepo domain.Repository
-	stockGRPC query.StockService
-	channel   *amqp.Channel
+	orderRepo      domain.Repository
+	stockGRPC      query.StockService
+	eventPublisher domain.EventPublisher
 }
 
-func NewCreateOrderHandler(orderRepo domain.Repository, stockGRPC query.StockService, channel *amqp.Channel, logger *logrus.Logger, metricClient decorator.MetricsClient) CreateOrderHandler {
+func NewCreateOrderHandler(orderRepo domain.Repository, stockGRPC query.StockService, eventPublisher domain.EventPublisher, logger *logrus.Logger, metricClient decorator.MetricsClient) CreateOrderHandler {
 	if orderRepo == nil {
 		panic("nil orderRepo")
 	}
 	if stockGRPC == nil {
 		panic("nil stockGRPC")
 	}
-	if channel == nil {
-		panic("nil channel ")
+	if eventPublisher == nil {
+		panic("nil eventPublisher")
 	}
 	return decorator.ApplyCommandDecorators[CreateOrder, *CreateOrderResult](
 		createOrderHandler{
-			orderRepo: orderRepo,
-			stockGRPC: stockGRPC,
-			channel:   channel,
+			orderRepo:      orderRepo,
+			stockGRPC:      stockGRPC,
+			eventPublisher: eventPublisher,
 		},
 		logger,
 		metricClient,
@@ -72,22 +72,8 @@ func (c createOrderHandler) Handle(ctx context.Context, cmd CreateOrder) (*Creat
 	if err != nil {
 		return nil, err
 	}
-	o, err := c.orderRepo.Create(ctx, pendingOrder)
-	if err != nil {
-		return nil, err
-	}
 
-	err = broker.PublishEvent(ctx, broker.PublishEventReq{
-		Channel:  c.channel,
-		Routing:  broker.Direct,
-		Queue:    broker.EventOrderCreated,
-		Exchange: "",
-		Body:     o,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "publish event error q.Name=%s", broker.EventOrderCreated)
-	}
-
+	o, err := service.NewOrderDomainService(c.orderRepo, c.eventPublisher).CreateOrder(ctx, *pendingOrder)
 	return &CreateOrderResult{OrderID: o.ID}, nil
 }
 
