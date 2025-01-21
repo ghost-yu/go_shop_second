@@ -71,11 +71,11 @@ func (c *Consumer) handleMessage(ch *amqp.Channel, msg amqp.Delivery, q amqp.Que
 	}
 	_, err = c.app.Commands.UpdateOrder.Handle(ctx, command.UpdateOrder{
 		Order: o,
-		UpdateFn: func(ctx context.Context, order *domain.Order) (*domain.Order, error) {
-			if err := order.IsPaid(); err != nil {
+		UpdateFn: func(ctx context.Context, oldOrder *domain.Order) (*domain.Order, error) {
+			if err := oldOrder.UpdateStatus(o.Status); err != nil {
 				return nil, err
 			}
-			return order, nil
+			return oldOrder, nil
 		},
 	})
 	if err != nil {

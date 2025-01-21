@@ -2,10 +2,11 @@ package order
 
 import (
 	"fmt"
+	"slices"
 
+	"github.com/ghost-yu/go_shop_second/common/consts"
 	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/pkg/errors"
-	"github.com/stripe/stripe-go/v80"
 )
 
 type Order struct {
@@ -14,6 +15,27 @@ type Order struct {
 	Status      string
 	PaymentLink string
 	Items       []*entity.Item
+}
+
+func (o *Order) UpdatePaymentLink(paymentLink string) error {
+	//if paymentLink == "" {
+	//	return errors.New("cannot update empty paymentLink")
+	//}
+	o.PaymentLink = paymentLink
+	return nil
+}
+
+func (o *Order) UpdateItems(items []*entity.Item) error {
+	o.Items = items
+	return nil
+}
+
+func (o *Order) UpdateStatus(to string) error {
+	if !o.isValidStatusTransition(to) {
+		return fmt.Errorf("cannot transit from '%s' to '%s'", o.Status, to)
+	}
+	o.Status = to
+	return nil
 }
 
 func NewOrder(id, customerID, status, paymentLink string, items []*entity.Item) (*Order, error) {
@@ -47,14 +69,20 @@ func NewPendingOrder(customerId string, items []*entity.Item) (*Order, error) {
 	}
 	return &Order{
 		CustomerID: customerId,
-		Status:     "pending",
+		Status:     consts.OrderStatusPending,
 		Items:      items,
 	}, nil
 }
 
-func (o *Order) IsPaid() error {
-	if o.Status == string(stripe.CheckoutSessionPaymentStatusPaid) {
-		return nil
+func (o *Order) isValidStatusTransition(to string) bool {
+	switch o.Status {
+	default:
+		return false
+	case consts.OrderStatusPending:
+		return slices.Contains([]string{consts.OrderStatusWaitingForPayment}, to)
+	case consts.OrderStatusWaitingForPayment:
+		return slices.Contains([]string{consts.OrderStatusPaid}, to)
+	case consts.OrderStatusPaid:
+		return slices.Contains([]string{consts.OrderStatusReady}, to)
 	}
-	return fmt.Errorf("order status not paid, order id = %s, status = %s", o.ID, o.Status)
 }

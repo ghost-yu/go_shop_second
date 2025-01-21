@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 
+	"github.com/ghost-yu/go_shop_second/common/consts"
 	"github.com/ghost-yu/go_shop_second/common/convertor"
 	"github.com/ghost-yu/go_shop_second/common/decorator"
 	"github.com/ghost-yu/go_shop_second/common/entity"
@@ -33,7 +34,7 @@ func (c createPaymentHandler) Handle(ctx context.Context, cmd CreatePayment) (st
 	newOrder, err := entity.NewValidOrder(
 		cmd.Order.ID,
 		cmd.Order.CustomerID,
-		"waiting_for_payment",
+		consts.OrderStatusWaitingForPayment,
 		link,
 		cmd.Order.Items,
 	)

@@ -113,6 +113,7 @@ func (m MySQLStockRepository) updatePessimistic(
 	existing := m.unmarshalFromDatabase(dest)
 	updated, err := updateFn(ctx, existing, data)
 	if err != nil {
+		panic(err)
 		return err
 	}
 

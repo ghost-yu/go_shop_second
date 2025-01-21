@@ -10,6 +10,7 @@ import (
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 // 要么用logging.Infof, Warnf...
@@ -18,7 +19,7 @@ import (
 func Init() {
 	SetFormatter(logrus.StandardLogger())
 	logrus.SetLevel(logrus.DebugLevel)
-	setOutput(logrus.StandardLogger())
+	//setOutput(logrus.StandardLogger())
 	logrus.AddHook(&traceHook{})
 }
 
@@ -79,11 +80,11 @@ func SetFormatter(logger *logrus.Logger) {
 		},
 	})
 	if isLocal, _ := strconv.ParseBool(os.Getenv("LOCAL_ENV")); isLocal {
-		//logger.SetFormatter(&prefixed.TextFormatter{
-		//	ForceColors:     true,
-		//	ForceFormatting: true,
-		//	TimestampFormat: time.RFC3339,
-		//})
+		logger.SetFormatter(&prefixed.TextFormatter{
+			ForceColors:     true,
+			ForceFormatting: true,
+			TimestampFormat: time.RFC3339,
+		})
 	}
 }
 

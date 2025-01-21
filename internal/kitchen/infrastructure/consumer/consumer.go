@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ghost-yu/go_shop_second/common/broker"
+	"github.com/ghost-yu/go_shop_second/common/consts"
 	"github.com/ghost-yu/go_shop_second/common/convertor"
 	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/genproto/orderpb"
@@ -83,7 +84,7 @@ func (c *Consumer) handleMessage(ch *amqp.Channel, msg amqp.Delivery, q amqp.Que
 	if err = c.orderGRPC.UpdateOrder(ctx, &orderpb.Order{
 		ID:          o.ID,
 		CustomerID:  o.CustomerID,
-		Status:      "ready",
+		Status:      consts.OrderStatusReady,
 		Items:       convertor.NewItemConvertor().EntitiesToProtos(o.Items),
 		PaymentLink: o.PaymentLink,
 	}); err != nil {

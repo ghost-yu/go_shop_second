@@ -28,7 +28,10 @@ func (it Item) validate() error {
 	if it.PriceID == "" {
 		invalidFields = append(invalidFields, "PriceID")
 	}
-	return fmt.Errorf("item=%v invalid, empty fields=[%s]", it, strings.Join(invalidFields, ","))
+	if len(invalidFields) > 0 {
+		return fmt.Errorf("item=%v invalid, empty fields=[%s]", it, strings.Join(invalidFields, ","))
+	}
+	return nil
 }
 
 func NewItem(ID string, name string, quantity int32, priceID string) *Item {
@@ -60,7 +63,7 @@ func (iq ItemWithQuantity) validate() error {
 		invalidFields = append(invalidFields, "Quantity")
 	}
 	if len(invalidFields) > 0 {
-		return errors.New(strings.Join(invalidFields, ","))
+		return errors.New("itemWithQuantity validate failed " + strings.Join(invalidFields, ","))
 	}
 	return nil
 }

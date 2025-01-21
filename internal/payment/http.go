@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/ghost-yu/go_shop_second/common/broker"
+	"github.com/ghost-yu/go_shop_second/common/consts"
 	"github.com/ghost-yu/go_shop_second/common/entity"
 	"github.com/ghost-yu/go_shop_second/common/logging"
 	"github.com/gin-gonic/gin"
@@ -86,7 +87,7 @@ func (h *PaymentHandler) handleWebhook(c *gin.Context) {
 				Body: entity.NewOrder(
 					session.Metadata["orderID"],
 					session.Metadata["customerID"],
-					string(stripe.CheckoutSessionPaymentStatusPaid),
+					consts.OrderStatusPaid,
 					session.Metadata["paymentLink"],
 					items,
 				),
