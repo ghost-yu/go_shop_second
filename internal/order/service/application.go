@@ -45,7 +45,10 @@ func newApplication(_ context.Context, stockGRPC query.StockService, ch *amqp.Ch
 	//orderRepo := adapters.NewMemoryOrderRepository()
 	mongoClient := newMongoClient()
 	orderRepo := adapters.NewOrderRepositoryMongo(mongoClient)
-	metricClient := metrics.TodoMetrics{}
+	metricClient := metrics.NewPrometheusMetricsClient(&metrics.PrometheusMetricsClientConfig{
+		Host:        viper.GetString("order.metrics_export_addr"),
+		ServiceName: viper.GetString("order.service-name"),
+	})
 	eventPublisher := mq.NewRabbitMQEventPublisher(ch)
 	return app.Application{
 		Commands: app.Commands{
