@@ -113,27 +113,197 @@ Lesson5-Lesson11 里涉及的文件很多，其中有三类：
 ### C. 基础设施启动文件
 
 #### internal/common/server/gprc.go
-文件职责：统一 gRPC server 启动流程。
-关键理解：
-1. RunGRPCServer 负责“按服务名读配置”。
-2. RunGRPCServerOnAddr 负责“真正创建并运行 server”。
-3. interceptor 链是统一注入日志、追踪、鉴权的位置。
+文件职责：统一 gRPC server 启动流程，所有 gRPC 服务都通过这里启动，业务服务只需提供「注册业务」这一个回调。
+
+完整代码+逐段注释：
+```go
+package server
+
+import (
+    "net"
+    grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+    grpc_tags   "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+    "github.com/sirupsen/logrus"
+    "github.com/spf13/viper"
+    "google.golang.org/grpc"
+)
+
+// init 是 Go 的特殊函数，包被 import 时自动执行，不需要手动调用。
+// 这里把 gRPC 框架内部日志替换成项目统一使用的 logrus，同时把级别设为 Warn，
+// 减少 gRPC 框架内部的噪音日志，保持日志格式一致，方便集中收集和排查问题。
+func init() {
+    logger := logrus.New()
+    logger.SetLevel(logrus.WarnLevel)                      // 只打 warn 及以上
+    grpc_logrus.ReplaceGrpcLogger(logrus.NewEntry(logger)) // 替换 gRPC 内置 logger
+}
+
+// RunGRPCServer 是对外的唯一入口。
+// 参数 serviceName：对应 global.yaml 里的 key，比如 "order" 或 "stock"。
+// 参数 registerServer：业务方传入的回调，用于把自己的 handler 注册进 grpc.Server。
+//
+// 调用方写法（order/main.go）示例：
+//   server.RunGRPCServer("order", func(s *grpc.Server) {
+//       orderpb.RegisterOrderServiceServer(s, ports.NewGRPCServer(app))
+//   })
+func RunGRPCServer(serviceName string, registerServer func(server *grpc.Server)) {
+    // viper.Sub("order").GetString("grpc-addr") 相当于读 global.yaml 里 order.grpc-addr 的值。
+    addr := viper.Sub(serviceName).GetString("grpc-addr")
+    if addr == "" {
+        // 地址缺失时用全局兜底地址，防止配置漏填导致进程直接崩溃。
+        addr = viper.GetString("fallback-grpc-addr")
+    }
+    RunGRPCServerOnAddr(addr, registerServer)
+}
+
+// RunGRPCServerOnAddr 真正创建并运行 gRPC server。
+// 独立函数的原因：测试时可以直接传 "127.0.0.1:0"（随机端口），不依赖配置文件。
+func RunGRPCServerOnAddr(addr string, registerServer func(server *grpc.Server)) {
+    logrusEntry := logrus.NewEntry(logrus.StandardLogger())
+
+    // grpc.NewServer(...) 创建 gRPC 服务器，括号里配置拦截器。
+    // 拦截器 = HTTP 框架里的中间件，每次 RPC 调用进来和出去时都会经过它们，
+    // 适合放日志、追踪、鉴权、panic 恢复等和业务无关的横切逻辑。
+    grpcServer := grpc.NewServer(
+
+        // ChainUnaryInterceptor：配置「一元 RPC」拦截器链（普通请求-响应模式，最常用）。
+        // 执行顺序：请求进来时从左到右，响应返回时从右到左。
+        grpc.ChainUnaryInterceptor(
+            // ① 从 proto 生成的请求结构里自动提取字段（如 customer_id）打到日志 Tag 里。
+            //   后续该请求的所有日志都自动携带这些字段，排查问题时不用手动传。
+            grpc_tags.UnaryServerInterceptor(
+                grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor),
+            ),
+            // ② 自动记录每次 RPC 的方法名、耗时、gRPC 状态码到 logrus。
+            grpc_logrus.UnaryServerInterceptor(logrusEntry),
+
+            // 下面是后续 lesson 会逐步打开的能力，当前注释保留位置：
+            // otelgrpc.UnaryServerInterceptor(),       // 分布式链路追踪（Lesson25+）
+            // srvMetrics.UnaryServerInterceptor(...),  // Prometheus 指标采集（Lesson43+）
+            // selector.UnaryServerInterceptor(...),    // 选择性鉴权（某些路由才需要鉴权）
+            // recovery.UnaryServerInterceptor(...),    // panic 自动恢复（防止一个请求崩掉整个进程）
+        ),
+
+        // ChainStreamInterceptor：配置「流式 RPC」拦截器链（双向流/服务端推送场景）。
+        // 当前项目主要用一元 RPC，这里配置和一元保持同步即可。
+        grpc.ChainStreamInterceptor(
+            grpc_tags.StreamServerInterceptor(
+                grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor),
+            ),
+            grpc_logrus.StreamServerInterceptor(logrusEntry),
+            // 同上，预留位置暂时注释
+        ),
+    )
+
+    // 执行业务注册回调，把 OrderService/StockService 的具体实现挂到 grpcServer 上。
+    // 这行之前 grpcServer 是空的（不知道有哪些方法），执行后才知道怎么处理请求。
+    registerServer(grpcServer)
+
+    // net.Listen 在 TCP 层监听指定地址，此时还没开始接受 gRPC 请求。
+    listen, err := net.Listen("tcp", addr)
+    if err != nil {
+        // 端口被占用、权限不足等情况，直接 panic 让进程退出，而不是静默失败。
+        logrus.Panic(err)
+    }
+    logrus.Infof("Starting gRPC server, Listening: %s", addr)
+
+    // grpcServer.Serve 是阻塞调用，进入后一直处理 gRPC 请求，直到 server Stop 或出错。
+    if err := grpcServer.Serve(listen); err != nil {
+        logrus.Panic(err)
+    }
+}
+```
+
+核心设计要点：
+1. **两函数分离**：RunGRPCServer 负责读配置（依赖 viper），RunGRPCServerOnAddr 只依赖
+   地址字符串。单元测试时可以绕过配置直接调用 RunGRPCServerOnAddr，不需要 global.yaml。
+2. **registerServer 回调模式**：框架不知道业务注册了什么，业务不知道框架怎么启动，
+   通过这一个函数参数完成解耦。这是 Go 里高频出现的依赖注入写法，全项目会反复看到。
+3. **拦截器链是功能扩展点**：目前只有日志+标签两层，后续每个注释行都是可独立打开的能力，
+   打开时完全不需要改任何业务代码，只需取消注释并引入对应包。
+
 依赖关系：
-1. 被 order/main.go 和 stock/main.go 调用。
-2. 反向依赖具体 registerServer 回调（由业务服务提供）。
+- 上游调用方：order/main.go 和 stock/main.go 传入 serviceName 和 registerServer 调用本函数。
+- 下游依赖：registerServer 回调由业务服务提供（例如 orderpb.RegisterOrderServiceServer）。
+
 复现检查：
-1. 启动时日志打印 Listening 地址。
-2. 地址冲突时会 panic，说明监听阶段生效。
+1. 启动后终端出现 `Starting gRPC server, Listening: 127.0.0.1:5002`。
+2. 改 global.yaml 的 grpc-addr 后重启，监听端口随之变化。
+3. 用重复端口启动第二个实例，net.Listen 会报 bind: address already in use 并 panic。
+
+---
 
 #### internal/common/server/http.go
-文件职责：统一 HTTP server 启动流程。
-关键理解：
-1. wrapper 回调用于把业务路由注册进 gin engine。
-2. 这样基础设施与业务路由解耦。
+文件职责：统一 HTTP server 启动流程，所有 HTTP 服务都通过这里启动，业务方只需传入路由注册回调。
+
+完整代码+逐段注释：
+```go
+package server
+
+import (
+    "github.com/gin-gonic/gin"
+    "github.com/spf13/viper"
+)
+
+// RunHTTPServer 按服务名从 viper 读 http-addr，然后启动 HTTP 服务。
+// 参数 wrapper：业务方提供的路由注册函数，接收 *gin.Engine 并往里注册路由和 handler。
+//
+// 调用方写法（order/main.go）示例：
+//   server.RunHTTPServer("order", func(router *gin.Engine) {
+//       ports.RegisterHandlersWithOptions(router, HTTPServer{app: application}, opts)
+//   })
+func RunHTTPServer(serviceName string, wrapper func(router *gin.Engine)) {
+    // viper.Sub("order").GetString("http-addr") 读取 global.yaml 里 order.http-addr 的值。
+    addr := viper.Sub(serviceName).GetString("http-addr")
+    if addr == "" {
+        // TODO：后续应加 warning 日志提醒配置缺失。
+        // 注意：addr 为空时 gin.Run("") 会监听 :80，非 root 权限下会权限错误。
+    }
+    RunHTTPServerOnAddr(addr, wrapper)
+}
+
+// RunHTTPServerOnAddr 真正创建 gin 引擎并运行。
+// 独立出来的原因：测试时可以直接传 ":0"（随机端口），不依赖 viper 配置。
+func RunHTTPServerOnAddr(addr string, wrapper func(router *gin.Engine)) {
+    // gin.New() 创建一个没有任何默认中间件的干净 gin 引擎。
+    // 区别于 gin.Default()：Default() 会自动加 Logger 和 Recovery 中间件，
+    // 这里用 New() 是为了完全掌控中间件，后续 lesson 会按需手动添加。
+    apiRouter := gin.New()
+
+    // 执行业务方传入的路由注册函数，把路由和 handler 挂到 apiRouter 上。
+    // 执行完后 apiRouter 才知道"POST /api/customer/.../orders"对应哪个 handler。
+    wrapper(apiRouter)
+
+    // ⚠️ 注意：下面这行实际上是无效代码（遗留 bug）。
+    // apiRouter.Group("/api") 返回一个新的 RouterGroup 对象，但没有赋值给变量，
+    // 返回值被直接丢弃，对已有路由没有任何影响，相当于执行了一个空操作。
+    // 真正的 /api 前缀是在 wrapper 内部通过 RegisterHandlersWithOptions 的 BaseURL:"/api" 设置的。
+    // 理解这一点可以防止你自己写出同类 bug。
+    apiRouter.Group("/api")
+
+    // apiRouter.Run 是阻塞调用，开始监听并处理 HTTP 请求。
+    // 出错（端口冲突、权限不足）时直接 panic，不要静默失败。
+    if err := apiRouter.Run(addr); err != nil {
+        panic(err)
+    }
+}
+```
+
+核心设计要点：
+1. **gin.New() 而非 gin.Default()**：主动掌控中间件，不被框架默认行为绑架。
+   需要加 cors、recovery、自定义日志时直接往 apiRouter 上加，与 grpc.go 的拦截器链思路一致。
+2. **wrapper 回调模式**：与 gprc.go 的 registerServer 完全相同的解耦思路，
+   http.go 不知道有哪些路由，order/main.go 负责告诉它。
+3. **apiRouter.Group("/api") 是无效代码**：这是代码里的遗留问题，不影响功能运行，
+   因为路由前缀已经由 RegisterHandlersWithOptions 的 BaseURL 参数正确设置了。
+
 依赖关系：
-1. 被 order/main.go 调用。
+- 上游调用方：order/main.go 传入 "order" 和路由注册 wrapper 调用本函数。
+- 下游依赖：wrapper 函数由 order/main.go 提供，其中调用 ports.RegisterHandlersWithOptions。
+
 复现检查：
-1. 服务启动后可访问配置端口。
+1. 启动 order 服务后，`curl http://127.0.0.1:8282/api/customer/test/orders` 能到达 handler。
+2. 修改 http-addr 端口后重启，访问旧端口应收到连接拒绝。
+3. 将端口改为已占用端口，gin.Run 返回 error 并触发 panic。
 
 ### D. 入口与端口层文件
 
