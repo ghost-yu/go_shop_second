@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// UpdateOrder 把“更新哪个订单”和“如何更新”一起传给 handler。
 type UpdateOrder struct {
 	Order    *domain.Order
 	UpdateFn func(context.Context, *domain.Order) (*domain.Order, error)
@@ -15,6 +16,7 @@ type UpdateOrder struct {
 
 type UpdateOrderHandler decorator.CommandHandler[UpdateOrder, interface{}]
 
+// updateOrderHandler 负责流程控制，具体修改细节由 UpdateFn 注入。
 type updateOrderHandler struct {
 	orderRepo domain.Repository
 	//stockGRPC
@@ -36,6 +38,7 @@ func NewUpdateOrderHandler(
 }
 
 func (c updateOrderHandler) Handle(ctx context.Context, cmd UpdateOrder) (interface{}, error) {
+	// 给 nil UpdateFn 一个 no-op 默认值，避免直接调用时发生空指针问题。
 	if cmd.UpdateFn == nil {
 		logrus.Warnf("updateOrderHandler got nil UpdateFn, order=%#v", cmd.Order)
 		cmd.UpdateFn = func(_ context.Context, order *domain.Order) (*domain.Order, error) { return order, nil }
