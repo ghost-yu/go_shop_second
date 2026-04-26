@@ -1,0 +1,5 @@
+# Hide noisy dependency metadata diffs across nested Go modules.
+go.mod -diff
+go.sum -diff
+**/go.mod -diff
+**/go.sum -diff
